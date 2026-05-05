@@ -14,14 +14,16 @@ const __dirname = path.dirname(__filename);
 
 // Cloudinary Configuration
 if (process.env.CLOUDINARY_URL) {
+  // If CLOUDINARY_URL is present, the SDK handles it automatically.
+  // We only set additional options like secure: true.
   cloudinary.config({
     secure: true
   });
 } else {
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'YOUR_NAME',
-    api_key: process.env.CLOUDINARY_API_KEY || 'YOUR_KEY',
-    api_secret: process.env.CLOUDINARY_API_SECRET || 'YOUR_SECRET',
+    cloud_name: process.env.VITE_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'YOUR_NAME',
+    api_key: process.env.VITE_CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || 'YOUR_KEY',
+    api_secret: process.env.VITE_CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || 'YOUR_SECRET',
     secure: true
   });
 }
@@ -62,6 +64,12 @@ async function startServer() {
   // Get all images
   app.get('/api/images', async (req, res) => {
     try {
+      // Check if configured
+      const config = cloudinary.config();
+      if (!config.cloud_name || config.cloud_name === 'YOUR_NAME') {
+        throw new Error("Cloudinary is not configured. Please set CLOUDINARY_URL in your environment variables.");
+      }
+
       // Use Search API for more reliable and up-to-date results
       const { resources } = await cloudinary.search
         .expression('folder:clothing_gallery')
@@ -105,9 +113,9 @@ async function startServer() {
       });
 
       res.json(collections);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Fetch images error:", error);
-      res.status(500).json({ error: "Failed to fetch images" });
+      res.status(500).json({ error: error.message || "Failed to fetch images from Cloudinary" });
     }
   });
 

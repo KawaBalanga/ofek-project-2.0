@@ -409,27 +409,27 @@ export default function App() {
             >
               <button 
                 onClick={() => setSelectedCollection(null)}
-                className="absolute top-6 right-6 z-20 p-2 bg-white/50 backdrop-blur-md rounded-full hover:bg-white hover:rotate-90 transition-all"
+                className="absolute top-6 right-6 z-30 p-2 bg-white/50 backdrop-blur-md rounded-full hover:bg-white hover:rotate-90 transition-all shadow-sm"
               >
                 <X className="h-6 w-6" />
               </button>
 
               {/* Left: Interactive Image Gallery */}
-              <div className="flex-[2] bg-gray-50 flex flex-col relative overflow-hidden group/gallery">
-                <div className="flex-1 flex items-center justify-center p-12 relative">
+              <div className="flex-[1.5] bg-[#f9f9f9] flex flex-col relative overflow-hidden group/gallery border-r border-gray-50">
+                <div className="flex-1 flex items-center justify-center p-8 md:p-12 relative overflow-hidden">
                   <AnimatePresence mode='wait'>
                     <motion.div
                       key={selectedCollection.images[activeImageIndex]?.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 1.05 }}
-                      transition={{ duration: 0.4 }}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
                       className="w-full h-full flex items-center justify-center"
                     >
                       <img 
                         src={selectedCollection.images[activeImageIndex]?.url} 
                         alt={selectedCollection.title}
-                        className="max-w-full max-h-full object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+                        className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-2xl"
                       />
                     </motion.div>
                   </AnimatePresence>
@@ -438,14 +438,20 @@ export default function App() {
                   {selectedCollection.images.length > 1 && (
                     <>
                       <button 
-                        onClick={() => setActiveImageIndex(i => (i - 1 + selectedCollection.images.length) % selectedCollection.images.length)}
-                        className="absolute left-8 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-black hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImageIndex(i => (i - 1 + selectedCollection.images.length) % selectedCollection.images.length);
+                        }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/90 backdrop-blur-md rounded-full shadow-xl opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-black hover:text-white"
                       >
                         <ChevronLeft className="h-6 w-6" />
                       </button>
                       <button 
-                        onClick={() => setActiveImageIndex(i => (i + 1) % selectedCollection.images.length)}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-black hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImageIndex(i => (i + 1) % selectedCollection.images.length);
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/90 backdrop-blur-md rounded-full shadow-xl opacity-0 group-hover/gallery:opacity-100 transition-all hover:bg-black hover:text-white"
                       >
                         <ChevronRight className="h-6 w-6" />
                       </button>
@@ -453,18 +459,18 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Thumbnails Section */}
-                <div className="p-6 bg-white border-t border-gray-100">
-                  <div className="flex gap-4 overflow-x-auto pb-2 px-2 scrollbar-hide">
+                {/* Thumbnails Section - Improved visibility */}
+                <div className="px-6 py-4 bg-white border-t border-gray-100">
+                  <div className="flex gap-3 overflow-x-auto pb-1 px-1 scrollbar-hide">
                     {selectedCollection.images.map((img, idx) => (
                       <div key={img.id} className="relative shrink-0">
                         <button 
                           onClick={() => setActiveImageIndex(idx)}
-                          className={`w-20 h-24 bg-gray-50 rounded-sm overflow-hidden border-2 transition-all ${
-                            activeImageIndex === idx ? 'border-black scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                          className={`w-16 h-20 bg-gray-50 rounded-sm overflow-hidden border-2 transition-all duration-300 ${
+                            activeImageIndex === idx ? 'border-black scale-105 shadow-md' : 'border-transparent opacity-50 hover:opacity-100'
                           }`}
                         >
-                          <img src={img.url} className="w-full h-full object-cover" alt="thumb" />
+                          <img src={img.url} className="w-full h-full object-cover" alt={`thumb-${idx}`} />
                         </button>
                       </div>
                     ))}
@@ -472,50 +478,60 @@ export default function App() {
                     <button 
                       onClick={() => collectionFileInputRef.current?.click()}
                       disabled={uploading}
-                      className="w-20 h-24 border-2 border-dashed border-gray-200 rounded-sm flex flex-col items-center justify-center gap-1 hover:border-black/30 hover:bg-gray-50 transition-all shrink-0"
+                      className="w-16 h-20 border-2 border-dashed border-gray-200 rounded-sm flex flex-col items-center justify-center gap-1 hover:border-black/30 hover:bg-gray-50 transition-all shrink-0 grayscale hover:grayscale-0"
                     >
                       <Plus className="h-4 w-4 text-gray-400" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Add</span>
+                      <span className="text-[9px] font-bold uppercase tracking-tighter text-gray-400">Add</span>
                     </button>
                   </div>
                 </div>
-
               </div>
 
               {/* Right: Details & Operations */}
               <div className="flex-1 flex flex-col bg-white overflow-y-auto">
-                <div className="p-12 space-y-12">
+                <div className="p-8 md:p-12 space-y-10">
                   <div>
                     <div className="inline-block px-2 py-0.5 border border-black mb-4">
                       <p className="text-[10px] font-bold uppercase tracking-widest leading-none">Studio Archive</p>
                     </div>
-                    <h2 className="text-4xl font-bold uppercase tracking-[0.15em] leading-tight">{selectedCollection.title}</h2>
-                    <p className="text-[11px] text-gray-400 font-mono tracking-widest uppercase mt-3">ID: {selectedCollection.id.substr(0, 16)}</p>
-                  </div>
-
-                  <div className="space-y-6">
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-mono">Classification</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCollection.tags.filter(t => ALLOWED_TAGS.includes(t)).map(tag => (
-                        <span key={tag} className="px-4 py-2 border border-gray-100 text-[11px] uppercase font-bold tracking-widest text-black bg-gray-50">
-                          {tag}
-                        </span>
-                      )) || <span className="text-gray-300 uppercase text-[10px] tracking-widest">Unclassified</span>}
+                    <h2 className="text-3xl md:text-5xl font-bold uppercase tracking-tighter leading-tight break-all">
+                      {selectedCollection.title}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-4">
+                      <div className="h-px flex-1 bg-gray-100" />
+                      <p className="text-[10px] text-gray-300 font-mono tracking-widest uppercase">ID: {selectedCollection.id.substr(0, 16)}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-mono">Dimensions</p>
+                  <div className="space-y-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Classification</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCollection.tags.filter(t => ALLOWED_TAGS.includes(t)).map(tag => (
+                        <span key={tag} className="px-4 py-2 border border-black text-[11px] uppercase font-bold tracking-widest text-white bg-black">
+                          {tag}
+                        </span>
+                      ))}
+                      {selectedCollection.tags.length === 0 && (
+                         <span className="text-gray-300 uppercase text-[10px] tracking-widest italic">No classification provided</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-end">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Select Size</p>
+                        <p className="text-[10px] text-gray-300 underline uppercase tracking-widest cursor-pointer">Size Guide</p>
+                      </div>
                       <div className="flex gap-2">
                         {SIZES.map(size => (
                           <button
                             key={size}
                             onClick={() => setSelectedSize(size)}
-                            className={`w-12 h-12 flex items-center justify-center text-[11px] font-bold border transition-all ${
+                            className={`w-14 h-14 flex items-center justify-center text-[12px] font-bold border transition-all ${
                               selectedSize === size 
-                              ? 'bg-black text-white border-black shadow-xl ring-4 ring-black/5' 
-                              : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'
+                              ? 'bg-black text-white border-black shadow-lg translate-y-[-2px]' 
+                              : 'bg-white text-gray-400 border-gray-100 hover:border-gray-500'
                             }`}
                           >
                             {size}
@@ -524,45 +540,48 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="space-y-6">
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-mono">Quantity</p>
-                      <div className="flex items-center border border-gray-100 h-12 w-fit bg-gray-50 shadow-sm">
+                    <div className="space-y-4">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Quantity</p>
+                      <div className="flex items-center border border-black h-14 w-36 bg-white overflow-hidden">
                         <button 
                           onClick={() => setSelectedQuantity(q => Math.max(1, q - 1))}
-                          className="w-12 h-full flex items-center justify-center hover:bg-gray-200 transition-colors border-r border-gray-100"
+                          className="flex-1 h-full flex items-center justify-center hover:bg-gray-50 transition-colors"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
-                        <div className="w-12 text-center text-[12px] font-bold font-mono">
+                        <div className="w-12 text-center text-[14px] font-bold font-mono">
                           {selectedQuantity}
                         </div>
                         <button 
                           onClick={() => setSelectedQuantity(q => q + 1)}
-                          className="w-12 h-full flex items-center justify-center hover:bg-gray-200 transition-colors border-l border-gray-100"
+                          className="flex-1 h-full flex items-center justify-center hover:bg-gray-50 transition-colors"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   </div>
-
-                  {/* Note removed */}
                 </div>
 
-                <div className="mt-auto p-12 bg-white border-t border-gray-50 flex flex-col gap-4">
+                <div className="mt-auto p-8 md:p-12 bg-gray-50 border-t border-gray-100 flex flex-col gap-6">
                   <button 
                     onClick={(e) => {
                       addToCart(selectedCollection, e, selectedSize, selectedQuantity, selectedCollection.images[activeImageIndex]?.url);
                       setSelectedCollection(null);
                     }}
-                    className="w-full bg-black text-white py-6 text-[12px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:translate-y-[-2px] active:translate-y-0 transition-all shadow-[0_20px_50px_rgba(0,0,0,0.1)]"
+                    className="w-full bg-black text-white py-6 text-[13px] font-bold uppercase tracking-[0.4em] flex items-center justify-center gap-3 hover:bg-zinc-800 transition-all shadow-xl group"
                   >
-                    <ShoppingBag className="h-4 w-4" />
+                    <ShoppingBag className="h-4 w-4 group-hover:scale-110 transition-transform" />
                     Place Order
                   </button>
-                  <p className="text-[9px] text-center text-gray-300 uppercase tracking-[0.2em]">
-                    Instant archive identification provided after confirmation
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-[9px] text-center text-gray-400 uppercase tracking-[0.2em] font-medium">
+                      Archive verification status: <span className="text-black">Confirmed</span>
+                    </p>
+                    <p className="text-[8px] text-center text-gray-300 uppercase tracking-[0.1em]">
+                      Ships within 2-4 business days from central archive
+                    </p>
+                  </div>
                 </div>
               </div>
 
