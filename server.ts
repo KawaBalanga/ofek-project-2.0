@@ -8,7 +8,6 @@ import multer from "multer";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import rateLimit from "express-rate-limit";
 import db from "./database.js";
 
 dotenv.config();
@@ -89,15 +88,7 @@ async function startServer() {
     res.json({ status: "ok", message: "Server is running" });
   });
 
-  const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-
-  app.post("/api/auth/login", loginLimiter, (req, res) => {
+  app.post("/api/auth/login", (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Username and password required" });
     const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
@@ -451,7 +442,7 @@ async function startServer() {
     const isSuperViewer = req.user.username === 'mega_shoper' || req.user.permissions.includes('admin');
     let visibleItems = allItems;
     if (!isSuperViewer) {
-      const myCollections = db.prepare('SELECT batch_id FROM collection_upload_dates WHERE uploaded_by = ?').all(req.user.username) as any[];
+      const myCollections = db.prepare('SELECT batch_id FROM collection_upload_dates WHERE uploaded_by = ? OR uploaded_by IS NULL').all(req.user.username) as any[];
       const myBatchIds = new Set(myCollections.map((r: any) => r.batch_id));
       visibleItems = allItems.filter((item: any) => myBatchIds.has(item.collection_id));
     }

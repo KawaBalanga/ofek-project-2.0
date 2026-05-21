@@ -771,19 +771,19 @@ export default function App() {
           <div className="space-y-4">
             <input
               type="text"
-              placeholder="USERNAME"
+              placeholder="Username"
               value={loginUsername}
               onChange={e => setLoginUsername(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              className="w-full bg-gray-50 border border-gray-100 py-4 px-6 text-sm uppercase tracking-widest outline-none focus:border-black transition-colors text-center"
+              className="w-full bg-gray-50 border border-gray-100 py-4 px-6 text-sm outline-none focus:border-black transition-colors text-center"
             />
             <input
               type="password"
-              placeholder="PASSWORD"
+              placeholder="Password"
               value={loginPassword}
               onChange={e => setLoginPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              className="w-full bg-gray-50 border border-gray-100 py-4 px-6 text-sm uppercase tracking-widest outline-none focus:border-black transition-colors text-center"
+              className="w-full bg-gray-50 border border-gray-100 py-4 px-6 text-sm outline-none focus:border-black transition-colors text-center"
             />
             {loginError && (
               <p className="text-center text-[10px] text-red-500 uppercase tracking-widest">{loginError}</p>
