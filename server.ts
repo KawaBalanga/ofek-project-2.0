@@ -136,13 +136,12 @@ async function startServer() {
       const today = new Date().toISOString();
       const liveBatchIds = new Set(groups.keys());
 
-      for (const batchId of liveBatchIds) {
-        await db.execute({ sql: 'INSERT OR IGNORE INTO collection_upload_dates (batch_id, uploaded_at) VALUES (?, ?)', args: [batchId, today] });
-      }
       const orphanedIds = Object.keys(dateMap).filter(id => !liveBatchIds.has(id));
-      for (const id of orphanedIds) {
-        await db.execute({ sql: 'DELETE FROM collection_upload_dates WHERE batch_id = ?', args: [id] });
-      }
+      const batchOps = [
+        ...[...liveBatchIds].map(batchId => ({ sql: 'INSERT OR IGNORE INTO collection_upload_dates (batch_id, uploaded_at) VALUES (?, ?)', args: [batchId, today] as any[] })),
+        ...orphanedIds.map(id => ({ sql: 'DELETE FROM collection_upload_dates WHERE batch_id = ?', args: [id] as any[] })),
+      ];
+      if (batchOps.length > 0) await db.batch(batchOps, 'deferred');
 
       const finalDateRes = await db.execute('SELECT batch_id, uploaded_at FROM collection_upload_dates');
       const finalDateMap: Record<string, string> = Object.fromEntries(finalDateRes.rows.map((r: any) => [r.batch_id, r.uploaded_at]));
