@@ -114,7 +114,7 @@ async function startServer() {
       const [priceRes, titleRes, dateRes] = await Promise.all([
         db.execute('SELECT batch_id, price FROM collection_prices'),
         db.execute('SELECT batch_id, title FROM collection_titles'),
-        db.execute('SELECT batch_id, uploaded_at FROM collection_upload_dates'),
+        db.execute('SELECT batch_id, uploaded_at, uploaded_by FROM collection_upload_dates'),
       ]);
       const priceMap: Record<string, number> = Object.fromEntries(priceRes.rows.map((r: any) => [r.batch_id, r.price]));
       const titleMap: Record<string, string> = Object.fromEntries(titleRes.rows.map((r: any) => [r.batch_id, r.title]));
@@ -143,14 +143,16 @@ async function startServer() {
       ];
       if (batchOps.length > 0) await db.batch(batchOps, 'deferred');
 
-      const finalDateRes = await db.execute('SELECT batch_id, uploaded_at FROM collection_upload_dates');
+      const finalDateRes = await db.execute('SELECT batch_id, uploaded_at, uploaded_by FROM collection_upload_dates');
       const finalDateMap: Record<string, string> = Object.fromEntries(finalDateRes.rows.map((r: any) => [r.batch_id, r.uploaded_at]));
+      const finalUploaderMap: Record<string, string> = Object.fromEntries(finalDateRes.rows.filter((r: any) => r.uploaded_by).map((r: any) => [r.batch_id, r.uploaded_by]));
 
       const collections: any[] = [];
       groups.forEach(g => {
         g.tags = Array.from(g.tags);
         g.price = priceMap[g.id] || 0;
         g.uploadedAt = finalDateMap[g.id] || null;
+        g.uploadedBy = finalUploaderMap[g.id] || null;
         collections.push(g);
       });
 

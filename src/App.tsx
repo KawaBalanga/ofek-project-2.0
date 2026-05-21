@@ -18,6 +18,7 @@ interface ClothingItem {
   tags: string[];
   price?: number;
   uploadedAt?: string;
+  uploadedBy?: string;
 }
 
 const SIZES = ['S', 'M', 'L', 'XL'] as const;
@@ -1292,6 +1293,9 @@ export default function App() {
                     <p className="text-[9px] text-gray-400 uppercase tracking-widest font-mono">
                       {item.tags.filter((t: string) => allowedTags.includes(t)).join(' / ') || 'CLASSIFIED'}
                     </p>
+                    {hasPermission('admin') && item.uploadedBy && (
+                      <p className="text-[9px] text-gray-400 tracking-widest font-mono">by {item.uploadedBy}</p>
+                    )}
                     
                     <div className="flex items-center gap-4 pt-2">
                       {hasPermission('remove_collection') && (
