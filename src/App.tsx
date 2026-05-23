@@ -2006,12 +2006,12 @@ export default function App() {
                                 <p className="text-[9px] text-gray-400 font-mono mt-0.5">{new Date(list.sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               {(() => {
-                                const isAlsoShoper = currentUser?.groups?.includes('shopers');
+                                const hasMyItems = list.items.some((item: any) => item.uploaded_by === currentUser?.username);
                                 if (list.handled_at) return <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>;
                                 if (isSuperViewer()) {
                                   if (list.all_shopers_handled) return <button onClick={() => handleInterestedList(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark Handled</button>;
-                                  if (isAlsoShoper && !list.my_handled_at) return <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark My Part</button>;
-                                  if (isAlsoShoper && list.my_handled_at) return <span className="text-[9px] text-gray-400 uppercase tracking-widest">✓ Waiting others…</span>;
+                                  if (hasMyItems && !list.my_handled_at) return <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark My Part</button>;
+                                  if (hasMyItems && list.my_handled_at) return <span className="text-[9px] text-gray-400 uppercase tracking-widest">✓ Waiting others…</span>;
                                   return <span className="text-[9px] text-gray-400 uppercase tracking-widest">Waiting shopers…</span>;
                                 }
                                 return list.my_handled_at
