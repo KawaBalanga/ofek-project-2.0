@@ -90,15 +90,15 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [adminTab, setAdminTab] = useState<'users' | 'tags' | 'orders'>('users');
   const [adminOrdersTab, setAdminOrdersTab] = useState<'interested' | 'cart' | 'history'>('interested');
-  const [adminUsers, setAdminUsers] = useState<{ id: number; username: string; permissions: string[] }[]>([]);
+  const [adminUsers, setAdminUsers] = useState<{ id: number; username: string; permissions: string[]; groups: string[]; locked?: number }[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
-  const [editingUser, setEditingUser] = useState<{ id: number; username: string; password: string; permissions: string[] } | null>(null);
-  const [newUserForm, setNewUserForm] = useState({ username: '', password: '', permissions: [] as string[] });
+  const [editingUser, setEditingUser] = useState<{ id: number; username: string; password: string; permissions: string[]; groups: string[] } | null>(null);
+  const [newUserForm, setNewUserForm] = useState({ username: '', password: '', permissions: [] as string[], groups: [] as string[] });
   const [showNewUserForm, setShowNewUserForm] = useState(false);
 
   // Auth state
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
-  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; permissions: string[] } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; permissions: string[]; groups: string[] } | null>(null);
   const [isInitializingAuth, setIsInitializingAuth] = useState(true);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -411,6 +411,15 @@ export default function App() {
 
   const ALL_PERMISSIONS = ['upload_collection', 'remove_collection', 'edit_tags', 'view_cart', 'send_interested', 'view_interested_lists', 'admin'];
 
+  const GROUPS = [
+    { value: 'administrators', label: 'Administrator', permissions: ['upload_collection', 'remove_collection', 'edit_tags', 'view_cart', 'send_interested', 'view_interested_lists', 'admin'] },
+    { value: 'super_viewers', label: 'Super Viewer', permissions: ['upload_collection', 'edit_tags', 'view_interested_lists'] },
+    { value: 'shopers', label: 'Shoper', permissions: ['upload_collection', 'edit_tags', 'view_interested_lists'] },
+    { value: 'buyers', label: 'Buyer', permissions: ['view_cart', 'remove_collection', 'send_interested'] },
+  ];
+
+  const isSuperViewer = () => currentUser?.groups?.some(g => g === 'super_viewers' || g === 'administrators') ?? false;
+
   const fetchAdminOrders = async () => {
     const [intRes, ordRes] = await Promise.all([
       authFetch('/api/interested-lists'),
@@ -430,11 +439,11 @@ export default function App() {
     const res = await authFetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newUserForm),
+      body: JSON.stringify({ ...newUserForm, groups: newUserForm.groups }),
     });
     if (res.ok) {
       await fetchAdminUsers();
-      setNewUserForm({ username: '', password: '', permissions: [] });
+      setNewUserForm({ username: '', password: '', permissions: [], groups: [] });
       setShowNewUserForm(false);
     }
   };
@@ -444,7 +453,7 @@ export default function App() {
     const res = await authFetch(`/api/admin/users/${editingUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: editingUser.username, password: editingUser.password || undefined, permissions: editingUser.permissions }),
+      body: JSON.stringify({ username: editingUser.username, password: editingUser.password || undefined, permissions: editingUser.permissions, groups: editingUser.groups }),
     });
     if (res.ok) {
       await fetchAdminUsers();
@@ -1140,7 +1149,7 @@ export default function App() {
               title="Received Lists & Orders"
             >
               <Mail className="h-6 w-6" />
-              {(() => { const openI = interestedLists.filter((l: any) => !l.handled_at && (currentUser?.username === 'mega_shoper' || !l.my_handled_at)).length; const openO = cartOrders.filter((o: any) => !o.handled_at).length; return (openI + openO) > 0 && (
+              {(() => { const openI = interestedLists.filter((l: any) => !l.handled_at && (isSuperViewer() || !l.my_handled_at)).length; const openO = cartOrders.filter((o: any) => !o.handled_at).length; return (openI + openO) > 0 && (
                 <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
                   {openI + openO}
                 </span>); })()}
@@ -1940,7 +1949,7 @@ export default function App() {
 
               <div className="flex border-b shrink-0">
                 <button onClick={() => setShoperTab('interested')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-1.5 ${shoperTab === 'interested' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
-                  <Eye className="h-3.5 w-3.5" /> Interested {interestedLists.filter((l: any) => !l.handled_at && (currentUser?.username === 'mega_shoper' || !l.my_handled_at)).length > 0 && `(${interestedLists.filter((l: any) => !l.handled_at && (currentUser?.username === 'mega_shoper' || !l.my_handled_at)).length})`}
+                  <Eye className="h-3.5 w-3.5" /> Interested {interestedLists.filter((l: any) => !l.handled_at && (isSuperViewer() || !l.my_handled_at)).length > 0 && `(${interestedLists.filter((l: any) => !l.handled_at && (isSuperViewer() || !l.my_handled_at)).length})`}
                 </button>
                 <button onClick={() => setShoperTab('orders')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-1.5 ${shoperTab === 'orders' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
                   <ShoppingCart className="h-3.5 w-3.5" /> Orders {cartOrders.filter((o: any) => !o.handled_at).length > 0 && `(${cartOrders.filter((o: any) => !o.handled_at).length})`}
@@ -1950,7 +1959,7 @@ export default function App() {
               <div className="flex-1 overflow-y-auto flex flex-col">
                 {shoperTab === 'interested' ? (
                   <>
-                  {currentUser?.username === 'mega_shoper' && (
+                  {isSuperViewer() && (
                     <div className="flex border-b shrink-0">
                       <button onClick={() => setMegaInboxTab('open')} className={`flex-1 py-2 text-[9px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-1 ${megaInboxTab === 'open' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
                         Open ({interestedLists.filter((l: any) => !l.handled_at).length})
@@ -1961,7 +1970,7 @@ export default function App() {
                     </div>
                   )}
                   {(() => {
-                    const visibleLists = currentUser?.username === 'mega_shoper'
+                    const visibleLists = isSuperViewer()
                       ? interestedLists.filter((l: any) => megaInboxTab === 'open' ? !l.handled_at : !!l.handled_at)
                       : interestedLists;
                     return visibleLists.length === 0 ? (
@@ -1978,7 +1987,7 @@ export default function App() {
                                 <p className="text-[11px] font-bold uppercase tracking-widest">{list.buyer_username}</p>
                                 <p className="text-[9px] text-gray-400 font-mono mt-0.5">{new Date(list.sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
-                              {currentUser?.username === 'mega_shoper' ? (
+                              {isSuperViewer() ? (
                                 list.handled_at ? (
                                   <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>
                                 ) : list.all_shopers_handled ? (
@@ -2007,7 +2016,7 @@ export default function App() {
                                     <p className="text-[10px] font-bold uppercase tracking-widest truncate">{item.collection_title}</p>
                                     {item.price && <p className="text-[10px] font-mono font-bold">${item.price}</p>}
                                   </div>
-                                  {currentUser?.username === 'mega_shoper' && item.uploaded_by && (
+                                  {isSuperViewer() && item.uploaded_by && (
                                     list.shoper_handles?.some((h: any) => h.shoper_username === item.uploaded_by)
                                       ? <span className="text-[9px] font-bold text-green-500 shrink-0">✓</span>
                                       : <span className="text-[9px] text-gray-300 shrink-0">○</span>
@@ -2023,7 +2032,7 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                  {currentUser?.username === 'mega_shoper' && (
+                  {isSuperViewer() && (
                     <div className="flex border-b shrink-0">
                       <button onClick={() => setMegaOrdersTab('open')} className={`flex-1 py-2 text-[9px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-1 ${megaOrdersTab === 'open' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
                         Open ({cartOrders.filter((o: any) => !o.handled_at).length})
@@ -2034,7 +2043,7 @@ export default function App() {
                     </div>
                   )}
                   {(() => {
-                    const visibleOrders = currentUser?.username === 'mega_shoper'
+                    const visibleOrders = isSuperViewer()
                       ? cartOrders.filter((o: any) => megaOrdersTab === 'open' ? !o.handled_at : !!o.handled_at)
                       : cartOrders;
                     return visibleOrders.length === 0 ? (
@@ -2296,20 +2305,32 @@ export default function App() {
                               className="w-full border border-gray-200 px-3 py-2 text-[11px] tracking-widest outline-none focus:border-black"
                             />
                             <div className="space-y-1.5">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Permissions</p>
+                              <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Group</p>
                               <div className="flex flex-wrap gap-1.5">
-                                {ALL_PERMISSIONS.map(p => (
-                                  <button
-                                    key={p}
-                                    onClick={() => {
-                                      const perms = editingUser.permissions.includes(p)
-                                        ? editingUser.permissions.filter(x => x !== p)
-                                        : [...editingUser.permissions, p];
-                                      setEditingUser({ ...editingUser, permissions: perms });
-                                    }}
-                                    className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${editingUser.permissions.includes(p) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
-                                  >{p.replace(/_/g, ' ')}</button>
+                                {GROUPS.map(g => (
+                                  <button key={g.value}
+                                    onClick={() => setEditingUser({ ...editingUser, groups: editingUser.groups.includes(g.value) ? [] : [g.value] })}
+                                    className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${editingUser.groups.includes(g.value) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                                  >{g.label}</button>
                                 ))}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Extra Permissions</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {ALL_PERMISSIONS.map(p => {
+                                  const inGroup = editingUser.groups.some((g: string) => GROUPS.find((x: { value: string; permissions: string[] }) => x.value === g)?.permissions.includes(p));
+                                  return (
+                                    <button key={p}
+                                      disabled={inGroup}
+                                      onClick={() => {
+                                        const perms = editingUser.permissions.includes(p) ? editingUser.permissions.filter(x => x !== p) : [...editingUser.permissions, p];
+                                        setEditingUser({ ...editingUser, permissions: perms });
+                                      }}
+                                      className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${inGroup ? 'border-gray-100 text-gray-300 cursor-default' : editingUser.permissions.includes(p) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                                    >{p.replace(/_/g, ' ')}{inGroup ? ' ✓' : ''}</button>
+                                  );
+                                })}
                               </div>
                             </div>
                             <div className="flex gap-2">
@@ -2321,7 +2342,12 @@ export default function App() {
                           <div className={`px-4 py-3 flex items-center justify-between ${user.locked ? 'bg-red-50/50' : ''}`}>
                             <div>
                               <p className={`text-[11px] font-bold uppercase tracking-widest ${user.locked ? 'text-red-400' : ''}`}>{user.username}</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">{user.permissions.map((p: string) => p.replace(/_/g, ' ')).join(', ') || 'No permissions'}</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">
+                                {user.groups?.length > 0
+                                  ? user.groups.map((g: string) => GROUPS.find((x: { value: string; label: string }) => x.value === g)?.label || g).join(', ')
+                                  : 'No group'}
+                                {user.permissions?.length > 0 && <span className="ml-1 text-gray-300">+ {user.permissions.length} extra</span>}
+                              </p>
                             </div>
                             <div className="flex items-center gap-3">
                               {user.username !== 'admin' && (
@@ -2365,20 +2391,32 @@ export default function App() {
                           className="w-full border border-gray-200 px-3 py-2 text-[11px] tracking-widest outline-none focus:border-black"
                         />
                         <div className="space-y-1.5">
-                          <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Permissions</p>
+                          <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Group</p>
                           <div className="flex flex-wrap gap-1.5">
-                            {ALL_PERMISSIONS.map(p => (
-                              <button
-                                key={p}
-                                onClick={() => {
-                                  const perms = newUserForm.permissions.includes(p)
-                                    ? newUserForm.permissions.filter(x => x !== p)
-                                    : [...newUserForm.permissions, p];
-                                  setNewUserForm({ ...newUserForm, permissions: perms });
-                                }}
-                                className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${newUserForm.permissions.includes(p) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
-                              >{p.replace(/_/g, ' ')}</button>
+                            {GROUPS.map(g => (
+                              <button key={g.value}
+                                onClick={() => setNewUserForm({ ...newUserForm, groups: newUserForm.groups.includes(g.value) ? [] : [g.value] })}
+                                className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${newUserForm.groups.includes(g.value) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                              >{g.label}</button>
                             ))}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Extra Permissions</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALL_PERMISSIONS.map(p => {
+                              const inGroup = newUserForm.groups.some((g: string) => GROUPS.find((x: { value: string; permissions: string[] }) => x.value === g)?.permissions.includes(p));
+                              return (
+                                <button key={p}
+                                  disabled={inGroup}
+                                  onClick={() => {
+                                    const perms = newUserForm.permissions.includes(p) ? newUserForm.permissions.filter(x => x !== p) : [...newUserForm.permissions, p];
+                                    setNewUserForm({ ...newUserForm, permissions: perms });
+                                  }}
+                                  className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${inGroup ? 'border-gray-100 text-gray-300 cursor-default' : newUserForm.permissions.includes(p) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
+                                >{p.replace(/_/g, ' ')}{inGroup ? ' ✓' : ''}</button>
+                              );
+                            })}
                           </div>
                         </div>
                         <div className="flex gap-2">

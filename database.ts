@@ -37,6 +37,7 @@ export async function initDb() {
     { sql: `CREATE TABLE IF NOT EXISTS cart_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, buyer_username TEXT NOT NULL, sent_at TEXT NOT NULL, handled_at TEXT, handled_by TEXT)` },
     { sql: `CREATE TABLE IF NOT EXISTS cart_order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, position INTEGER NOT NULL, collection_id TEXT NOT NULL, collection_title TEXT NOT NULL, representative_image TEXT, price REAL, quantity INTEGER NOT NULL DEFAULT 1, size TEXT, FOREIGN KEY (order_id) REFERENCES cart_orders(id) ON DELETE CASCADE)` },
     { sql: `CREATE TABLE IF NOT EXISTS tags (name TEXT PRIMARY KEY)` },
+    { sql: `CREATE TABLE IF NOT EXISTS user_groups (user_id INTEGER NOT NULL, group_name TEXT NOT NULL, PRIMARY KEY (user_id, group_name), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)` },
   ], 'deferred');
 
   // Migrations
@@ -77,6 +78,23 @@ export async function initDb() {
     const row = await db.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: [username] });
     if (row.rows.length > 0) {
       await db.execute({ sql: 'INSERT OR IGNORE INTO permissions (user_id, permission) VALUES (?, ?)', args: [Number(row.rows[0].id), perm] });
+    }
+  }
+
+  // Seed default group assignments for existing users
+  const defaultGroups: [string, string][] = [
+    ['admin', 'administrators'],
+    ['mega_shoper', 'super_viewers'],
+    ['shoper1', 'shopers'],
+    ['buyer1', 'buyers'],
+    ['b_test', 'buyers'],
+    ['s_test', 'shopers'],
+    ['charles', 'shopers'],
+  ];
+  for (const [username, group] of defaultGroups) {
+    const row = await db.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: [username] });
+    if (row.rows.length > 0) {
+      await db.execute({ sql: 'INSERT OR IGNORE INTO user_groups (user_id, group_name) VALUES (?, ?)', args: [Number(row.rows[0].id), group] });
     }
   }
 

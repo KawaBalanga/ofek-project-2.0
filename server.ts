@@ -18,6 +18,14 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+const GROUP_PERMISSIONS: Record<string, string[]> = {
+  administrators: ['upload_collection', 'remove_collection', 'edit_tags', 'view_cart', 'send_interested', 'view_interested_lists', 'admin'],
+  super_viewers: ['upload_collection', 'edit_tags', 'view_interested_lists'],
+  shopers: ['upload_collection', 'edit_tags', 'view_interested_lists'],
+  buyers: ['view_cart', 'remove_collection', 'send_interested'],
+};
+const SUPER_VIEWER_GROUPS = new Set(['super_viewers', 'administrators']);
+
 function requirePermission(permission: string) {
   return (req: any, res: any, next: any) => {
     const token = req.headers.authorization?.split(" ")[1];
@@ -86,10 +94,16 @@ async function startServer() {
       return res.status(401).json({ error: "Invalid username or password" });
     }
     if (user.locked) return res.status(403).json({ error: "This account has been locked. Contact an administrator." });
-    const permsR = await db.execute({ sql: "SELECT permission FROM permissions WHERE user_id = ?", args: [user.id] });
-    const permissions = permsR.rows.map((p: any) => p.permission as string);
-    const token = jwt.sign({ id: user.id, username: user.username, permissions }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { id: user.id, username: user.username, permissions } });
+    const [permsR, groupsR] = await Promise.all([
+      db.execute({ sql: "SELECT permission FROM permissions WHERE user_id = ?", args: [user.id] }),
+      db.execute({ sql: "SELECT group_name FROM user_groups WHERE user_id = ?", args: [user.id] }),
+    ]);
+    const groups = groupsR.rows.map((g: any) => g.group_name as string);
+    const groupPerms = new Set<string>(groups.flatMap(g => GROUP_PERMISSIONS[g] || []));
+    const indivPerms = permsR.rows.map((p: any) => p.permission as string);
+    const permissions = [...new Set([...groupPerms, ...indivPerms])];
+    const token = jwt.sign({ id: user.id, username: user.username, permissions, groups }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ token, user: { id: user.id, username: user.username, permissions, groups } });
   });
 
   app.get("/api/auth/me", (req, res) => {
@@ -97,7 +111,7 @@ async function startServer() {
     if (!token) return res.status(401).json({ error: "No token" });
     try {
       const payload = jwt.verify(token, JWT_SECRET) as any;
-      res.json({ id: payload.id, username: payload.username, permissions: payload.permissions });
+      res.json({ id: payload.id, username: payload.username, permissions: payload.permissions, groups: payload.groups || [] });
     } catch {
       res.status(401).json({ error: "Invalid token" });
     }
@@ -237,18 +251,21 @@ async function startServer() {
 
   // Admin: get all users
   app.get('/api/admin/users', requirePermission('admin'), async (_req, res) => {
-    const [usersR, permsR] = await Promise.all([
+    const [usersR, permsR, groupsR] = await Promise.all([
       db.execute('SELECT id, username, locked FROM users ORDER BY id'),
       db.execute('SELECT user_id, permission FROM permissions'),
+      db.execute('SELECT user_id, group_name FROM user_groups'),
     ]);
     const permMap: Record<number, string[]> = {};
     permsR.rows.forEach((p: any) => { if (!permMap[p.user_id]) permMap[p.user_id] = []; permMap[p.user_id].push(p.permission); });
-    res.json(usersR.rows.map((u: any) => ({ ...u, permissions: permMap[Number(u.id)] || [] })));
+    const groupMap: Record<number, string[]> = {};
+    groupsR.rows.forEach((g: any) => { if (!groupMap[g.user_id]) groupMap[g.user_id] = []; groupMap[g.user_id].push(g.group_name); });
+    res.json(usersR.rows.map((u: any) => ({ ...u, permissions: permMap[Number(u.id)] || [], groups: groupMap[Number(u.id)] || [] })));
   });
 
   // Admin: create user
   app.post('/api/admin/users', requirePermission('admin'), async (req, res) => {
-    const { username, password, permissions } = req.body;
+    const { username, password, permissions, groups } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     try {
       const hash = bcrypt.hashSync(password, 10);
@@ -257,6 +274,9 @@ async function startServer() {
       if (Array.isArray(permissions)) {
         for (const p of permissions) await db.execute({ sql: 'INSERT INTO permissions (user_id, permission) VALUES (?, ?)', args: [uid, p] });
       }
+      if (Array.isArray(groups)) {
+        for (const g of groups) await db.execute({ sql: 'INSERT OR IGNORE INTO user_groups (user_id, group_name) VALUES (?, ?)', args: [uid, g] });
+      }
       res.json({ success: true, id: uid });
     } catch { res.status(400).json({ error: 'Username already exists' }); }
   });
@@ -264,12 +284,16 @@ async function startServer() {
   // Admin: update user
   app.put('/api/admin/users/:id', requirePermission('admin'), async (req, res) => {
     const id = Number(req.params.id);
-    const { username, password, permissions } = req.body;
+    const { username, password, permissions, groups } = req.body;
     if (username) await db.execute({ sql: 'UPDATE users SET username = ? WHERE id = ?', args: [username, id] });
     if (password) await db.execute({ sql: 'UPDATE users SET password = ? WHERE id = ?', args: [bcrypt.hashSync(password, 10), id] });
     if (Array.isArray(permissions)) {
       await db.execute({ sql: 'DELETE FROM permissions WHERE user_id = ?', args: [id] });
       for (const p of permissions) await db.execute({ sql: 'INSERT INTO permissions (user_id, permission) VALUES (?, ?)', args: [id, p] });
+    }
+    if (Array.isArray(groups)) {
+      await db.execute({ sql: 'DELETE FROM user_groups WHERE user_id = ?', args: [id] });
+      for (const g of groups) await db.execute({ sql: 'INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)', args: [id, g] });
     }
     res.json({ success: true });
   });
@@ -345,7 +369,7 @@ async function startServer() {
 
     const uploaderMap = Object.fromEntries(uploaderR.rows.map((r: any) => [r.batch_id, r.uploaded_by]));
     const allHandles = handlesR.rows as any[];
-    const isSuperViewer = req.user.username === 'mega_shoper' || req.user.permissions.includes('admin');
+    const isSuperViewer = (req.user.groups || []).some((g: string) => SUPER_VIEWER_GROUPS.has(g));
 
     let visibleItems = allItemsR.rows as any[];
     if (!isSuperViewer) {
