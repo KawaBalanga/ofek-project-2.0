@@ -153,6 +153,24 @@ export default function App() {
   }, [cart]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    const TIMEOUT = 30 * 60 * 1000;
+    const updateActivity = () => localStorage.setItem('last_activity', Date.now().toString());
+    const checkInactivity = () => {
+      const last = Number(localStorage.getItem('last_activity') || Date.now());
+      if (Date.now() - last > TIMEOUT) handleLogout();
+    };
+    updateActivity();
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, updateActivity));
+    const interval = setInterval(checkInactivity, 60 * 1000);
+    return () => {
+      events.forEach(e => window.removeEventListener(e, updateActivity));
+      clearInterval(interval);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
     if (isBillOpen) setBillOrderNumber(Math.random().toString(36).substring(2, 8).toUpperCase());
   }, [isBillOpen]);
 
