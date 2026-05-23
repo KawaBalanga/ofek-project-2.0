@@ -95,6 +95,8 @@ export default function App() {
   const [editingUser, setEditingUser] = useState<{ id: number; username: string; password: string; permissions: string[]; groups: string[] } | null>(null);
   const [newUserForm, setNewUserForm] = useState({ username: '', password: '', permissions: [] as string[], groups: [] as string[] });
   const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [usersGroupsSubTab, setUsersGroupsSubTab] = useState<'groups' | 'users'>('groups');
+  const [addingToGroup, setAddingToGroup] = useState<{ group: string; userId: string } | null>(null);
 
   // Auth state
   const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
@@ -468,6 +470,22 @@ export default function App() {
 
   const toggleUserLock = async (id: number) => {
     const res = await authFetch(`/api/admin/users/${id}/lock`, { method: 'PATCH' });
+    if (res.ok) await fetchAdminUsers();
+  };
+
+  const addUserToGroup = async (userId: number, group: string) => {
+    const user = adminUsers.find((u: typeof adminUsers[0]) => u.id === userId);
+    if (!user) return;
+    const newGroups = [...new Set([...(user.groups || []), group])];
+    const res = await authFetch(`/api/admin/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groups: newGroups }) });
+    if (res.ok) await fetchAdminUsers();
+  };
+
+  const removeUserFromGroup = async (userId: number, group: string) => {
+    const user = adminUsers.find((u: typeof adminUsers[0]) => u.id === userId);
+    if (!user) return;
+    const newGroups = (user.groups || []).filter((g: string) => g !== group);
+    const res = await authFetch(`/api/admin/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groups: newGroups }) });
     if (res.ok) await fetchAdminUsers();
   };
 
@@ -2274,7 +2292,7 @@ export default function App() {
 
               <div className="flex border-b shrink-0">
                 <button onClick={() => setAdminTab('users')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-2 ${adminTab === 'users' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
-                  <Users className="h-3 w-3" /> Users
+                  <Users className="h-3 w-3" /> Users & Groups
                 </button>
                 <button onClick={() => setAdminTab('tags')} className={`flex-1 py-3 text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center justify-center gap-2 ${adminTab === 'tags' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>
                   <Tag className="h-3 w-3" /> Tags
@@ -2286,8 +2304,53 @@ export default function App() {
 
               <div className="flex-1 overflow-y-auto">
                 {adminTab === 'users' ? (
-                  <div className="p-4 space-y-4">
-                    {adminUsers.map(user => (
+                  <div className="flex flex-col">
+                    <div className="flex border-b shrink-0 bg-white">
+                      <button onClick={() => setUsersGroupsSubTab('groups')} className={`flex-1 py-2.5 text-[9px] uppercase tracking-widest font-bold transition-colors ${usersGroupsSubTab === 'groups' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>Groups</button>
+                      <button onClick={() => setUsersGroupsSubTab('users')} className={`flex-1 py-2.5 text-[9px] uppercase tracking-widest font-bold transition-colors ${usersGroupsSubTab === 'users' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-black'}`}>Users</button>
+                    </div>
+                    {usersGroupsSubTab === 'groups' ? (
+                      <div className="p-4 space-y-4">
+                        {GROUPS.map(group => {
+                          const members = adminUsers.filter((u: typeof adminUsers[0]) => u.groups?.includes(group.value));
+                          const nonMembers = adminUsers.filter((u: typeof adminUsers[0]) => !u.groups?.includes(group.value));
+                          const isAddingHere = addingToGroup?.group === group.value;
+                          return (
+                            <div key={group.value} className="border border-gray-100 rounded-sm overflow-hidden">
+                              <div className="bg-gray-50 px-4 py-3">
+                                <p className="text-[11px] font-bold uppercase tracking-widest">{group.label}</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">{group.permissions.map(p => p.replace(/_/g, ' ')).join(' · ')}</p>
+                              </div>
+                              <div className="px-4 py-3 space-y-1.5">
+                                {members.length === 0 && <p className="text-[9px] text-gray-300 uppercase tracking-widest">No members</p>}
+                                {members.map((u: typeof adminUsers[0]) => (
+                                  <div key={u.id} className="flex items-center justify-between">
+                                    <span className="text-[10px] uppercase tracking-widest font-bold">{u.username}</span>
+                                    <button onClick={() => removeUserFromGroup(u.id, group.value)} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><X className="h-3 w-3" /></button>
+                                  </div>
+                                ))}
+                                {isAddingHere ? (
+                                  <div className="flex gap-1.5 pt-1">
+                                    <select value={addingToGroup.userId} onChange={e => setAddingToGroup({ ...addingToGroup, userId: e.target.value })} className="flex-1 border border-gray-200 px-2 py-1.5 text-[10px] uppercase tracking-widest outline-none focus:border-black bg-white">
+                                      <option value="">Select user...</option>
+                                      {nonMembers.map((u: typeof adminUsers[0]) => <option key={u.id} value={u.id}>{u.username}</option>)}
+                                    </select>
+                                    <button onClick={async () => { if (addingToGroup.userId) { await addUserToGroup(Number(addingToGroup.userId), group.value); setAddingToGroup(null); } }} className="px-3 py-1.5 bg-black text-white text-[9px] uppercase tracking-widest">Add</button>
+                                    <button onClick={() => setAddingToGroup(null)} className="px-3 py-1.5 border border-gray-200 text-[9px] uppercase tracking-widest text-gray-400 hover:text-black">✕</button>
+                                  </div>
+                                ) : nonMembers.length > 0 && (
+                                  <button onClick={() => setAddingToGroup({ group: group.value, userId: '' })} className="w-full border border-dashed border-gray-200 py-1.5 text-[9px] uppercase tracking-widest text-gray-400 hover:text-black hover:border-black transition-all flex items-center justify-center gap-1 mt-1">
+                                    <Plus className="h-2.5 w-2.5" /> Add Member
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                    <div className="p-4 space-y-4">
+                    {adminUsers.map((user: typeof adminUsers[0]) => (
                       <div key={user.id} className="border border-gray-100 rounded-sm overflow-hidden">
                         {editingUser?.id === user.id ? (
                           <div className="p-4 space-y-3">
@@ -2391,17 +2454,6 @@ export default function App() {
                           className="w-full border border-gray-200 px-3 py-2 text-[11px] tracking-widest outline-none focus:border-black"
                         />
                         <div className="space-y-1.5">
-                          <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Group</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {GROUPS.map(g => (
-                              <button key={g.value}
-                                onClick={() => setNewUserForm({ ...newUserForm, groups: newUserForm.groups.includes(g.value) ? [] : [g.value] })}
-                                className={`px-2 py-1 text-[9px] uppercase tracking-widest border transition-all ${newUserForm.groups.includes(g.value) ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-400 hover:border-gray-400'}`}
-                              >{g.label}</button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
                           <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold">Extra Permissions</p>
                           <div className="flex flex-wrap gap-1.5">
                             {ALL_PERMISSIONS.map(p => {
@@ -2428,6 +2480,8 @@ export default function App() {
                       <button onClick={() => setShowNewUserForm(true)} className="w-full border border-dashed border-gray-200 py-3 text-[10px] uppercase tracking-widest text-gray-400 hover:text-black hover:border-black transition-all flex items-center justify-center gap-2">
                         <Plus className="h-3 w-3" /> Add User
                       </button>
+                    )}
+                    </div>
                     )}
                   </div>
                 ) : adminTab === 'tags' ? (
