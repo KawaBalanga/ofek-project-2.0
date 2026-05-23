@@ -402,7 +402,14 @@ export default function App() {
   const markShoperHandled = async (id: number) => {
     await authFetch(`/api/interested-lists/${id}/shoper-handle`, { method: 'PATCH' });
     const now = new Date().toISOString();
-    setInterestedLists(prev => prev.map((l: any) => l.id === id ? { ...l, my_handled_at: now } : l));
+    setInterestedLists(prev => prev.map((l: any) => {
+      if (l.id !== id) return l;
+      const newHandles = [...(l.shoper_handles || []).filter((h: any) => h.shoper_username !== currentUser?.username), { list_id: id, shoper_username: currentUser?.username, handled_at: now }];
+      const uploaders = new Set((l.items || []).map((i: any) => i.uploaded_by).filter(Boolean));
+      const handledNames = new Set(newHandles.map((h: any) => h.shoper_username));
+      const all_shopers_handled = uploaders.size > 0 && [...uploaders].every(u => handledNames.has(u));
+      return { ...l, my_handled_at: now, shoper_handles: newHandles, all_shopers_handled };
+    }));
   };
 
   const handleCartOrder = async (id: number) => {
@@ -2006,12 +2013,10 @@ export default function App() {
                                 <p className="text-[9px] text-gray-400 font-mono mt-0.5">{new Date(list.sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               {(() => {
-                                const hasMyItems = list.items.some((item: any) => item.uploaded_by === currentUser?.username);
                                 if (list.handled_at) return <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>;
                                 if (isSuperViewer()) {
                                   if (list.all_shopers_handled) return <button onClick={() => handleInterestedList(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark Handled</button>;
-                                  if (hasMyItems && !list.my_handled_at) return <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark My Part</button>;
-                                  if (hasMyItems && list.my_handled_at) return <span className="text-[9px] text-gray-400 uppercase tracking-widest">✓ Waiting others…</span>;
+                                  if (list.my_handled_at) return <span className="text-[9px] text-gray-400 uppercase tracking-widest">✓ Waiting others…</span>;
                                   return <span className="text-[9px] text-gray-400 uppercase tracking-widest">Waiting shopers…</span>;
                                 }
                                 return list.my_handled_at
@@ -2031,7 +2036,9 @@ export default function App() {
                                   {isSuperViewer() && item.uploaded_by && (
                                     list.shoper_handles?.some((h: any) => h.shoper_username === item.uploaded_by)
                                       ? <span className="text-[9px] font-bold text-green-500 shrink-0">✓</span>
-                                      : <span className="text-[9px] text-gray-300 shrink-0">○</span>
+                                      : item.uploaded_by === currentUser?.username && !list.my_handled_at
+                                        ? <button onClick={() => markShoperHandled(list.id)} className="text-[9px] uppercase tracking-widest border border-black px-2 py-0.5 hover:bg-black hover:text-white transition-all shrink-0 whitespace-nowrap">Mark</button>
+                                        : <span className="text-[9px] text-gray-300 shrink-0">○</span>
                                   )}
                                 </div>
                               ))}
