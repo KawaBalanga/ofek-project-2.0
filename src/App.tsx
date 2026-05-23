@@ -2005,25 +2005,19 @@ export default function App() {
                                 <p className="text-[11px] font-bold uppercase tracking-widest">{list.buyer_username}</p>
                                 <p className="text-[9px] text-gray-400 font-mono mt-0.5">{new Date(list.sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
-                              {isSuperViewer() ? (
-                                list.handled_at ? (
-                                  <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>
-                                ) : list.all_shopers_handled ? (
-                                  <button onClick={() => handleInterestedList(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">
-                                    Mark Handled
-                                  </button>
-                                ) : (
-                                  <span className="text-[9px] text-gray-400 uppercase tracking-widest">Waiting shopers…</span>
-                                )
-                              ) : (
-                                list.my_handled_at ? (
-                                  <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>
-                                ) : (
-                                  <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">
-                                    Mark Handled
-                                  </button>
-                                )
-                              )}
+                              {(() => {
+                                const isAlsoShoper = currentUser?.groups?.includes('shopers');
+                                if (list.handled_at) return <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>;
+                                if (isSuperViewer()) {
+                                  if (list.all_shopers_handled) return <button onClick={() => handleInterestedList(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark Handled</button>;
+                                  if (isAlsoShoper && !list.my_handled_at) return <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark My Part</button>;
+                                  if (isAlsoShoper && list.my_handled_at) return <span className="text-[9px] text-gray-400 uppercase tracking-widest">✓ Waiting others…</span>;
+                                  return <span className="text-[9px] text-gray-400 uppercase tracking-widest">Waiting shopers…</span>;
+                                }
+                                return list.my_handled_at
+                                  ? <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">✓ Handled</span>
+                                  : <button onClick={() => markShoperHandled(list.id)} className="text-[9px] font-bold uppercase tracking-widest border border-black px-3 py-1 hover:bg-black hover:text-white transition-all">Mark Handled</button>;
+                              })()}
                             </div>
                             <div className="divide-y divide-gray-50">
                               {list.items.map((item: any) => (
