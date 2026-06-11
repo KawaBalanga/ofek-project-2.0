@@ -2474,7 +2474,7 @@ export default function App() {
                         </div>
                         <div className="flex gap-2">
                           <button onClick={createAdminUser} className="flex-1 bg-black text-white py-2 text-[10px] uppercase tracking-widest font-bold hover:bg-gray-800 transition-colors">Create</button>
-                          <button onClick={() => { setShowNewUserForm(false); setNewUserForm({ username: '', password: '', permissions: [] }); }} className="flex-1 border border-gray-200 py-2 text-[10px] uppercase tracking-widest text-gray-400 hover:text-black hover:border-black transition-all">Cancel</button>
+                          <button onClick={() => { setShowNewUserForm(false); setNewUserForm({ username: '', password: '', permissions: [], groups: [] }); }} className="flex-1 border border-gray-200 py-2 text-[10px] uppercase tracking-widest text-gray-400 hover:text-black hover:border-black transition-all">Cancel</button>
                         </div>
                       </div>
                     ) : (
